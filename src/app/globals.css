@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --bg-focus: #1f1147;
+  --bg-short: #0f3d3e;
+  --bg-long: #3d1f47;
+}
+
+body {
+  background: radial-gradient(circle at 50% 20%, var(--bg-focus), #0a0614 70%);
+}
+
+.pomodoro-bg {
+  transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pomodoro-bg[data-mode="focus"] {
+  background: radial-gradient(circle at 50% 20%, var(--bg-focus), #0a0614 70%);
+}
+.pomodoro-bg[data-mode="short"] {
+  background: radial-gradient(circle at 50% 20%, var(--bg-short), #04181a 70%);
+}
+.pomodoro-bg[data-mode="long"] {
+  background: radial-gradient(circle at 50% 20%, var(--bg-long), #1a0a1f 70%);
+}
+
+.ring-progress {
+  transition:
+    stroke-dashoffset 0.3s linear,
+    stroke 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}

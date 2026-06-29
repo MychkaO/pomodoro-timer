@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro</title>
+<style>
+  :root{
+    --bg-focus: #1f1147;
+    --bg-short: #0f3d3e;
+    --bg-long: #3d1f47;
+    --accent: #ff7e67;
+    --accent-2: #ffd56b;
+    --text: #f5f3ff;
+    --muted: rgba(245,243,255,0.6);
+    --ring-bg: rgba(255,255,255,0.12);
+    --transition: 0.6s cubic-bezier(.4,0,.2,1);
+  }
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: radial-gradient(circle at 50% 20%, var(--bg-focus), #0a0614 70%);
+    background-attachment: fixed;
+    transition: background var(--transition);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+  body.mode-short{ background: radial-gradient(circle at 50% 20%, var(--bg-short), #04181a 70%); }
+  body.mode-long{ background: radial-gradient(circle at 50% 20%, var(--bg-long), #1a0a1f 70%); }
+
+  .app{
+    width: 100%;
+    max-width: 480px;
+    padding: 40px 32px;
+    text-align: center;
+  }
+
+  .modes{
+    display:flex;
+    justify-content:center;
+    gap: 8px;
+    margin-bottom: 36px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    padding: 6px;
+    backdrop-filter: blur(8px);
+  }
+  .modes button{
+    flex:1;
+    border:none;
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .modes button.active{
+    background: rgba(255,255,255,0.14);
+    color: var(--text);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  }
+  .modes button:hover:not(.active){ color: var(--text); }
+
+  .ring-wrap{
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 0 auto 32px;
+  }
+  svg{ transform: rotate(-90deg); width:100%; height:100%; }
+  .ring-bg{
+    fill:none;
+    stroke: var(--ring-bg);
+    stroke-width: 10;
+  }
+  .ring-progress{
+    fill:none;
+    stroke: var(--accent);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.3s linear, stroke var(--transition);
+  }
+  body.mode-short .ring-progress{ stroke: #6be0c9; }
+  body.mode-long .ring-progress{ stroke: #d49bff; }
+
+  .center{
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: 6px;
+  }
+  .time{
+    font-size: 64px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .label{
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+  }
+  .session-count{
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .session-count .dot{
+    display:inline-block;
+    width:7px; height:7px;
+    border-radius:50%;
+    background: var(--ring-bg);
+    margin: 0 3px;
+    transition: background 0.3s ease;
+  }
+  .session-count .dot.filled{ background: var(--accent-2); }
+
+  .controls{
+    display:flex;
+    justify-content:center;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .controls button{
+    border:none;
+    cursor:pointer;
+    border-radius: 999px;
+    font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.3s ease, background 0.3s ease;
+  }
+  .btn-main{
+    padding: 16px 48px;
+    font-size: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #1a0e0a;
+    box-shadow: 0 8px 24px rgba(255,126,103,0.35);
+  }
+  .btn-main:hover{ transform: translateY(-2px); }
+  .btn-main:active{ transform: translateY(0); }
+  .btn-secondary{
+    padding: 16px 22px;
+    font-size: 15px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+  }
+  .btn-secondary:hover{ background: rgba(255,255,255,0.16); }
+
+  .stats{
+    margin-top: 36px;
+    font-size: 12.5px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+  .stats strong{ color: var(--text); font-weight: 700; }
+
+  footer{
+    margin-top: 18px;
+    font-size: 11px;
+    color: rgba(245,243,255,0.35);
+  }
+
+  @media (max-width:380px){
+    .ring-wrap{ width:240px; height:240px; }
+    .time{ font-size: 50px; }
+  }
+</style>
+</head>
+<body class="mode-focus">
+<div class="app">
+
+  <div class="modes">
+    <button data-mode="focus" class="active">Focus</button>
+    <button data-mode="short">Short Break</button>
+    <button data-mode="long">Long Break</button>
+  </div>
+
+  <div class="ring-wrap">
+    <svg viewBox="0 0 200 200">
+      <circle class="ring-bg" cx="100" cy="100" r="90"></circle>
+      <circle class="ring-progress" cx="100" cy="100" r="90"
+        stroke-dasharray="565.48" stroke-dashoffset="0"></circle>
+    </svg>
+    <div class="center">
+      <div class="time" id="time">25:00</div>
+      <div class="label" id="phaseLabel">Focus Time</div>
+      <div class="session-count" id="dots"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-secondary" id="resetBtn" title="Reset">↺</button>
+    <button class="btn-main" id="startBtn">Start</button>
+    <button class="btn-secondary" id="skipBtn" title="Skip">⏭</button>
+  </div>
+
+  <div class="stats" id="stats">Completed today: <strong id="completedCount">0</strong> pomodoros</div>
+  <footer>Tip: tab stays accurate even if minimized</footer>
+</div>
+
+<audio id="dingSound" preload="auto">
+  <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+</audio>
+
+<script>
+(function(){
+  const DURATIONS = { focus: 25*60, short: 5*60, long: 15*60 };
+  const LABELS = { focus: 'Focus Time', short: 'Short Break', long: 'Long Break' };
+  const CIRC = 2 * Math.PI * 90;
+
+  let mode = 'focus';
+  let remaining = DURATIONS.focus;
+  let running = false;
+  let endTime = null;
+  let tickHandle = null;
+  let completedPomodoros = Number(localStorage.getItem('pomodoro_completed') || 0);
+  let sessionInCycle = Number(localStorage.getItem('pomodoro_cycle') || 0); // 0-3, tracks position before a long break
+
+  const timeEl = document.getElementById('time');
+  const phaseLabelEl = document.getElementById('phaseLabel');
+  const ringProgress = document.querySelector('.ring-progress');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  const dotsEl = document.getElementById('dots');
+  const completedCountEl = document.getElementById('completedCount');
+  const modeButtons = document.querySelectorAll('.modes button');
+  const body = document.body;
+  const dingSound = document.getElementById('dingSound');
+
+  ringProgress.setAttribute('stroke-dasharray', CIRC.toFixed(2));
+
+  function formatTime(s){
+    const m = Math.floor(s/60);
+    const sec = s%60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  }
+
+  function renderDots(){
+    dotsEl.innerHTML = '';
+    for(let i=0;i<4;i++){
+      const d = document.createElement('span');
+      d.className = 'dot' + (i < sessionInCycle ? ' filled' : '');
+      dotsEl.appendChild(d);
+    }
+  }
+
+  function updateDisplay(){
+    timeEl.textContent = formatTime(remaining);
+    const total = DURATIONS[mode];
+    const progress = 1 - (remaining/total);
+    const offset = CIRC * (1 - progress);
+    ringProgress.style.strokeDashoffset = offset.toFixed(2);
+    phaseLabelEl.textContent = LABELS[mode];
+    completedCountEl.textContent = completedPomodoros;
+    document.title = (running ? formatTime(remaining)+' · ' : '') + 'Pomodoro';
+    renderDots();
+  }
+
+  function setMode(newMode, resetTimer=true){
+    mode = newMode;
+    body.classList.remove('mode-focus','mode-short','mode-long');
+    body.classList.add('mode-' + mode);
+    modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    if(resetTimer){
+      stopTicking();
+      running = false;
+      remaining = DURATIONS[mode];
+      startBtn.textContent = 'Start';
+      ringProgress.style.strokeDashoffset = '0';
+    }
+    updateDisplay();
+  }
+
+  function playDing(){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.9);
+      o.start();
+      o.stop(ctx.currentTime + 0.9);
+      setTimeout(()=>{
+        const o2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        o2.connect(g2); g2.connect(ctx.destination);
+        o2.type='sine'; o2.frequency.value = 1175;
+        g2.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g2.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime+0.02);
+        g2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.8);
+        o2.start(); o2.stop(ctx.currentTime+0.8);
+      }, 180);
+    }catch(e){ /* audio unavailable */ }
+  }
+
+  function notify(text){
+    if('Notification' in window && Notification.permission === 'granted'){
+      new Notification('Pomodoro', { body: text });
+    }
+  }
+
+  function completePhase(){
+    stopTicking();
+    running = false;
+    playDing();
+
+    if(mode === 'focus'){
+      completedPomodoros++;
+      localStorage.setItem('pomodoro_completed', completedPomodoros);
+      sessionInCycle++;
+      if(sessionInCycle >= 4){
+        sessionInCycle = 0;
+        localStorage.setItem('pomodoro_cycle', sessionInCycle);
+        notify('Great work! Time for a long break.');
+        setMode('long');
+      } else {
+        localStorage.setItem('pomodoro_cycle', sessionInCycle);
+        notify('Pomodoro done! Take a short break.');
+        setMode('short');
+      }
+    } else {
+      notify('Break over. Ready to focus?');
+      setMode('focus');
+    }
+    startBtn.textContent = 'Start';
+  }
+
+  function tick(){
+    const now = Date.now();
+    remaining = Math.max(0, Math.round((endTime - now)/1000));
+    updateDisplay();
+    if(remaining <= 0){
+      completePhase();
+    }
+  }
+
+  function startTicking(){
+    endTime = Date.now() + remaining*1000;
+    tickHandle = setInterval(tick, 250);
+  }
+
+  function stopTicking(){
+    if(tickHandle){ clearInterval(tickHandle); tickHandle = null; }
+  }
+
+  function toggleStart(){
+    if(running){
+      running = false;
+      stopTicking();
+      startBtn.textContent = 'Start';
+    } else {
+      running = true;
+      startTicking();
+      startBtn.textContent = 'Pause';
+      if('Notification' in window && Notification.permission === 'default'){
+        Notification.requestPermission();
+      }
+    }
+    updateDisplay();
+  }
+
+  function resetCurrent(){
+    stopTicking();
+    running = false;
+    remaining = DURATIONS[mode];
+    startBtn.textContent = 'Start';
+    updateDisplay();
+  }
+
+  function skipPhase(){
+    completePhase();
+  }
+
+  startBtn.addEventListener('click', toggleStart);
+  resetBtn.addEventListener('click', resetCurrent);
+  skipBtn.addEventListener('click', skipPhase);
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if(e.code === 'Space'){ e.preventDefault(); toggleStart(); }
+  });
+
+  setMode('focus');
+  updateDisplay();
+})();
+</script>
+</body>
+</html>
